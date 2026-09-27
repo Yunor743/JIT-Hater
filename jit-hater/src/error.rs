@@ -12,9 +12,13 @@ pub enum Error {
     /// Failed to read the memory of a process region.
     #[error("memory read failed for pid {pid} region {region:#x}-{end:#x}: {source}")]
     MemRead {
+        /// Target PID.
         pid: i32,
+        /// Region start address.
         region: u64,
+        /// Region end address.
         end: u64,
+        /// Underlying IO error.
         #[source]
         source: std::io::Error,
     },

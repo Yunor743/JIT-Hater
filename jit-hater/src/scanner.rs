@@ -16,7 +16,10 @@ use crate::config::Config;
 /// Result of enumerating a process: pid + process start time.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessId {
+    /// Kernel PID.
     pub pid: i32,
+    /// Process start time (clock ticks since boot), identity salt against
+    /// PID reuse.
     pub starttime: Option<u64>,
 }
 

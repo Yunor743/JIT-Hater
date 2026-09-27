@@ -4,6 +4,9 @@
 //! detect. Used by integration tests and by humans wanting to verify their
 //! deployment. NOT a weapon: payloads are inert (exit syscall / message).
 
+#![allow(missing_docs)]
+#![allow(clippy::undocumented_unsafe_blocks, unused_imports, dead_code)]
+
 use std::io::Read;
 
 use clap::Parser;
@@ -65,7 +68,7 @@ fn main() {
 /// Allocate anonymous RWX memory and copy the shellcode into it, then keep
 /// the process alive so a scanner can observe the mapping.
 fn poc_rwx() -> &'static [u8; 0x1000] {
-    use std::ffi::c_void;
+    
     let size = 0x1000;
     let ptr = unsafe {
         libc::mmap(

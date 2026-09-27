@@ -16,7 +16,7 @@ name = "jit_hater"
 path = "src/lib.rs"
 
 [lints.rust]
-unsafe_code = "warn"
+unsafe_code = "allow"
 missing_docs = "warn"
 
 [dependencies]

@@ -309,16 +309,12 @@ pub fn ensure_tmpfs(dir: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::DumpConfig;
-    use jit_hater_common::{DumpReason, Severity};
+
+    use jit_hater_common::DumpReason;
 
     fn test_config(dir: PathBuf) -> Config {
         let mut cfg = Config::default();
-        cfg.dump = DumpConfig {
-            directory: dir,
-            granularity: crate::config::Granularity::Page,
-            ..Default::default()
-        };
+        cfg.dump.directory = dir;
         cfg
     }
 

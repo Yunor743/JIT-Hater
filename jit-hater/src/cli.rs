@@ -10,12 +10,19 @@ use crate::config::Granularity;
 /// Options that CLI arguments can override in the config.
 #[derive(Debug, Default, Clone)]
 pub struct CliOptions {
+    /// Dump directory override (`--dump-dir`).
     pub dump_dir: Option<PathBuf>,
+    /// Dump granularity override (`--granularity`).
     pub granularity: Option<Granularity>,
+    /// Fluctuation threshold override (`--fluctuation-threshold`).
     pub fluctuation_threshold: Option<u32>,
+    /// Polling interval override (`--poll-interval`).
     pub poll_interval: Option<u64>,
+    /// Log format override (`--log-format`).
     pub log_format: Option<String>,
+    /// Tracing filter override (`--log-filter`).
     pub log_filter: Option<String>,
+    /// Rules disabled via `--disable-rule` (repeatable).
     pub disable_rules: Vec<String>,
 }
 
@@ -60,6 +67,7 @@ pub struct Cli {
     #[arg(long, global = true, value_name = "SLUG")]
     pub disable_rule: Vec<String>,
 
+    /// Subcommand to run (scan, monitor, rules, status).
     #[command(subcommand)]
     pub command: Command,
 }
@@ -67,7 +75,9 @@ pub struct Cli {
 /// Argument mirror of `Granularity` for clap.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum GranularityArg {
+    /// Dump the 4KiB page where the activity was observed.
     Page,
+    /// Dump the whole VMA (capped).
     Vma,
 }
 

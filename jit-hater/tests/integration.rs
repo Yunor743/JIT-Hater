@@ -1,9 +1,18 @@
+#![allow(missing_docs)]
+
 //! Integration tests: PoC injectors + JIT-Hater detection.
+
 //!
+
 //! Spawns PoC injector children, scans their memory with the library, and
+
 //! asserts that the expected rules fire and that dumps contain the injected
+
 //! bytes. Structurally-persistent states only (transient mprotect flips are
+
 //! covered by the engine unit tests and, later, the eBPF monitor).
+
+
 
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
@@ -84,7 +93,7 @@ fn poc_rwx_is_detected_and_dumped() {
             .ends_with("-unbacked_rx.dump")
     );
 
-    child.kill();
+    let _ = child.kill();
     let _ = child.wait();
 }
 
@@ -101,7 +110,7 @@ fn poc_memfd_is_detected() {
         outs.iter().map(|o| o.rule).collect::<Vec<_>>()
     );
 
-    child.kill();
+    let _ = child.kill();
     let _ = child.wait();
 }
 
@@ -125,6 +134,6 @@ fn benign_process_does_not_trip_scanner() {
             .map(|o| (o.rule, o.finding.detail.clone()))
             .collect::<Vec<_>>()
     );
-    child.kill();
+    let _ = child.kill();
     let _ = child.wait();
 }

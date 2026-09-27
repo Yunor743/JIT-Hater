@@ -18,13 +18,16 @@ use crate::config::Config;
 /// (Wrapper kept for future per-rule context extension.)
 #[derive(Debug, Clone)]
 pub struct RuleInput<'a> {
+    /// The observed event.
     pub event: &'a DetectionEvent,
+    /// The engine's configuration snapshot.
     pub config: &'a Config,
 }
 
 /// Output of the engine: a finding ready to be dumped/reported.
 #[derive(Debug, Clone)]
 pub struct RuleOutput {
+    /// The finding produced by a rule.
     pub finding: Finding,
     /// Rule slug that produced it (debug convenience).
     pub rule: &'static str,
@@ -71,6 +74,7 @@ impl FluctuationState {
         fired
     }
 
+    /// Current transition count for one (pid, page) pair.
     pub fn count(&self, pid: i32, page: u64) -> u32 {
         self.counts.get(&(pid, page)).copied().unwrap_or(0)
     }
@@ -124,7 +128,10 @@ impl RuleEngine {
 
     /// Evaluate one event against every active rule.
     pub fn evaluate(&mut self, event: &DetectionEvent) -> Vec<RuleOutput> {
-        if let DetectionEvent::Syscall { pid, .. } = event {
+        // Process-level allowlist gate applies to both event paths.
+        if let Some(pid) = match event {
+            DetectionEvent::Syscall { pid, .. } | DetectionEvent::Region { pid, .. } => Some(pid),
+        } {
             let comm = std::fs::read_to_string(format!("/proc/{pid}/comm"))
                 .map(|s| s.trim_end().to_string())
                 .unwrap_or_default();
@@ -164,7 +171,7 @@ impl RuleEngine {
 
     fn eval_fluctuation(&mut self, input: &RuleInput<'_>) -> Option<Finding> {
         FluctuationRule
-            .evaluate_stateful(&input, &mut self.fluctuation)
+            .evaluate_stateful(input, &mut self.fluctuation)
     }
 }
 
@@ -368,7 +375,7 @@ impl DetectionRule for DeletedFileExecRule {
                 starttime,
                 syscall: SyscallEvent::Execveat,
                 addr,
-                len: _,
+                len,
                 prot,
                 path,
                 ..
@@ -425,7 +432,7 @@ impl DetectionRule for MemfdExecRule {
                 starttime,
                 syscall: SyscallEvent::MemfdCreate,
                 addr,
-                len: _,
+                len,
                 prot,
                 path,
                 ..
@@ -471,7 +478,7 @@ impl DetectionRule for MprotectWToXRule {
             starttime,
             syscall: SyscallEvent::Mprotect,
             addr,
-            len: _,
+            len,
             prot,
             prev_prot,
             ..
@@ -520,7 +527,7 @@ impl DetectionRule for MprotectRwxRule {
             starttime,
             syscall: SyscallEvent::Mprotect,
             addr,
-            len: _,
+            len,
             prot,
             ..
         } = input.event
@@ -561,7 +568,7 @@ impl DetectionRule for MmapRwxRule {
             starttime,
             syscall: SyscallEvent::Mmap,
             addr,
-            len: _,
+            len,
             prot,
             ..
         } = input.event
@@ -602,7 +609,7 @@ impl DetectionRule for MmapExecAnonRule {
             starttime,
             syscall: SyscallEvent::Mmap,
             addr,
-            len: _,
+            len,
             prot,
             ..
         } = input.event
@@ -735,7 +742,7 @@ impl DetectionRule for ProcessVmWritevRule {
             starttime,
             syscall: SyscallEvent::ProcessVmWritev,
             addr,
-            len: _,
+            len,
             ..
         } = input.event
         else {
@@ -881,8 +888,11 @@ fn region_from(addr: u64, len: u64, prot: u64, path: Option<String>) -> RegionSn
 /// Serialized representation of one rule's settings (future YAML rule files).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleMeta {
+    /// Rule slug (matches a `DumpReason` slug).
     pub slug: String,
+    /// Alert severity for this rule.
     pub severity: Severity,
+    /// Human-readable description.
     pub description: String,
 }
 
@@ -1009,11 +1019,21 @@ mod tests {
     #[test]
     fn allowlisted_process_never_fires() {
         let mut config = Config::default();
-        config.rules.process_allowlist.push("keepassxc".into());
+        // Allowlist our own comm: the syscall gate must then suppress
+        // every finding for our own PID.
+        let comm = std::fs::read_to_string("/proc/self/comm")
+            .map(|s| s.trim_end().to_string())
+            .unwrap_or_else(|_| "test".into());
+        config.rules.process_allowlist.push(comm);
         let mut engine = RuleEngine::with_defaults(config);
         let r = region("1000-2000 rwxp 00000000 00:00 0 ");
-        let ev = DetectionEvent::Syscall {
-            pid: 999,
+        let ev_region = DetectionEvent::Region {
+            pid: std::process::id() as i32,
+            starttime: None,
+            region: r,
+        };
+        let ev_sys = DetectionEvent::Syscall {
+            pid: std::process::id() as i32,
             starttime: None,
             syscall: SyscallEvent::Mmap,
             addr: 0x1000,
@@ -1022,15 +1042,13 @@ mod tests {
             prev_prot: None,
             path: None,
         };
-        // We cannot easily stub /proc/999/comm in unit tests; the syscall gate
-        // reads comm — process 999 likely doesn't exist, read fails, allowed.
-        // This test guards the structural path gate instead.
-        let ev_region = DetectionEvent::Region {
-            pid: std::process::id() as i32,
-            starttime: None,
-            region: r,
-        };
-        // Our own test binary is not allowlisted, so findings may occur.
-        let _ = engine.evaluate(&ev_region);
+        assert!(
+            engine.evaluate(&ev_region).is_empty(),
+            "allowlisted process (Region path) must never fire"
+        );
+        assert!(
+            engine.evaluate(&ev_sys).is_empty(),
+            "allowlisted process (Syscall gate) must never fire"
+        );
     }
 }

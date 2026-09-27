@@ -55,6 +55,7 @@ pub fn poll_loop(
     config: &Config,
     engine: &std::sync::Arc<std::sync::Mutex<crate::rules::RuleEngine>>,
     stop_secs: Option<u64>,
+    dumper: &mut crate::dumper::Dumper,
 ) {
     let interval = Duration::from_secs(config.monitor.poll_interval_secs.max(1));
     let mut state = PollState::default();
@@ -78,7 +79,7 @@ pub fn poll_loop(
                         region: region.clone(),
                     };
                     for out in engine.evaluate(&ev) {
-                        report_finding(&out.finding);
+                        handle_finding(dumper, &out.finding);
                     }
                     // Emulated transitions feed the fluctuation rule in
                     // polling mode (approximation; eBPF gives exact events).
@@ -98,7 +99,7 @@ pub fn poll_loop(
                             path: None,
                         };
                         for out in engine.evaluate(&ev) {
-                            report_finding(&out.finding);
+                            handle_finding(dumper, &out.finding);
                         }
                     }
                 }
@@ -116,7 +117,21 @@ pub fn poll_loop(
     }
 }
 
-/// Log one finding to stdout as JSON (dumping happens in the runner).
+/// Handle one finding: dump to disk (logged via tracing on stdout) and
+/// report the finding line on stdout. Dump failures are logged but do not
+/// suppress the finding report.
+pub fn handle_finding(dumper: &mut crate::dumper::Dumper, finding: &jit_hater_common::Finding) {
+    match dumper.dump(finding) {
+        Ok(Some(_)) => {} // dump already logged
+        Ok(None) => report_finding(finding),
+        Err(e) => {
+            tracing::warn!(pid = finding.pid, reason = %finding.reason, error = %e, "dump failed");
+            report_finding(finding);
+        }
+    }
+}
+
+/// Log one finding to stdout as JSON.
 pub fn report_finding(finding: &jit_hater_common::Finding) {
     println!(
         "{}",

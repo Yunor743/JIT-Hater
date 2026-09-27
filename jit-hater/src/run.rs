@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
-use jit_hater_common::events::EventSource;
+
 use tracing::{info, warn};
 
 use crate::config::Config;
@@ -78,7 +78,6 @@ pub fn scan_once(
             match dumper.dump(&finding) {
                 Ok(Some(ev)) => {
                     dumped += 1;
-                    let _ = EventSource::Scanner; // source already encoded in ev
                     let _ = ev;
                 }
                 Ok(None) => {}
@@ -105,7 +104,8 @@ pub fn run_service(config: Config, _output: OutputMode, stop: Option<u64>) -> Re
         let config = config.clone();
         let engine = engine.clone();
         std::thread::spawn(move || {
-            monitor::poll_loop(&config, &engine, stop)
+            let mut dumper = Dumper::new(config.clone()).map_err(|e| anyhow::anyhow!("dumper init: {e:#}")).expect("dumper init");
+            monitor::poll_loop(&config, &engine, stop, &mut dumper);
         })
     };
 
@@ -120,7 +120,7 @@ pub fn run_service(config: Config, _output: OutputMode, stop: Option<u64>) -> Re
                 Ok(findings) => {
                     for out in findings {
                         if let Ok(Some(_ev)) = dumper.dump(&out.finding) {
-                            let _ = EventSource::Scanner;
+                            /* source: scanner */
                         }
                     }
                 }
