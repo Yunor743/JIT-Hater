@@ -1,0 +1,32 @@
+[Unit]
+Description=JIT-Hater — behavioral memory threat detector
+Documentation=https://github.com/JIT-Hater/jit-hater
+After=local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=@bindir@/jit-hater monitor --config @config@/jit-hater.yaml
+Restart=on-failure
+RestartSec=5s
+
+# Run as root but drop everything else (see README for the capability model).
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE CAP_BPF CAP_PERFMON
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE CAP_BPF CAP_PERFMON
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=false
+ProtectKernelTunables=true
+ProtectKernelModules=false
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=false
+ReadWritePaths=/dev/shm/jit-hater
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,42 @@
+[package]
+name = "jit-hater"
+description = "Behavioral memory threat detector for Linux: watches process memory activity and dumps suspicious regions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+default-run = "jit-hater"
+
+[[bin]]
+name = "jit-hater"
+path = "src/bin/jit-hater.rs"
+
+[lib]
+name = "jit_hater"
+path = "src/lib.rs"
+
+[lints.rust]
+unsafe_code = "warn"
+missing_docs = "warn"
+
+[dependencies]
+jit-hater-common = { workspace = true }
+
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+libc = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true }
+procfs = { workspace = true }
+signal-hook = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.8"

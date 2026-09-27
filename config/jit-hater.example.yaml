@@ -1,0 +1,75 @@
+# JIT-Hater example configuration (YAML)
+#
+# Precedence: CLI overrides > this file > built-in defaults.
+# Dump directory should stay on a tmpfs: dumps can contain secrets
+# (browser passwords, keepassxc keys...) that legitimate processes hold.
+
+dump:
+  # Must live on tmpfs; dumps are chmod 0600, the directory 0700.
+  directory: /dev/shm/jit-hater
+  # page: dump only the 4KiB page where the activity was observed
+  # vma:  dump the whole mapping, capped by max_dump_size
+  granularity: page
+  # Max bytes per dump when granularity is vma (16 MiB).
+  max_dump_size: 16777216
+  # Safety caps (0 = unlimited).
+  max_files: 10000
+  max_dir_size: 536870912
+  # Identical (rule, content) dumps within this TTL are not rewritten.
+  dedup_ttl_secs: 3600
+
+monitor:
+  enabled: true
+  # Use eBPF probes when the kernel supports them (LSM hooks need
+  # CONFIG_BPF_LSM and `bpf` in the lsm= boot parameter), otherwise fall
+  # back to /proc polling.
+  prefer_ebpf: true
+  # Fallback polling interval (seconds).
+  poll_interval_secs: 5
+  # Number of executable-state transitions on the same page before a
+  # fluctuation dump (memory fluctuation / sleep obfuscation detector).
+  fluctuation_threshold: 5
+  # Ignore our own process.
+  ignore_self: true
+  # Only watch these UIDs (empty = all).
+  watch_uids: []
+
+scanner:
+  # Run a structural /proc scan every N seconds in service mode (0 = off,
+  # one-shot `scan` command only). 300 is a sane production default.
+  interval_secs: 300
+  # Process names (comm) excluded from structural scans.
+  ignore_processes:
+    - gdb
+    - strace
+    - jit-hater
+    - rustinel
+    - kunai
+    - tracee
+  # Hash file-backed executable regions against their on-disk ELF.
+  # Disabled by default: needs per-binary baselines (P2 feature).
+  text_hash_cap: 0
+
+rules:
+  # Disable rules by slug. See `jit-hater rules` for the full list.
+  disabled: []
+  # Processes legitimately doing RW->RX cycles (JIT engines) are tolerated
+  # by the fluctuation rule. Extend with your known JIT workloads.
+  jit_allowlist:
+    - neovim
+    - gnome-shell
+    - firefox
+    - chromium
+    - java
+    - node
+    - dotnet
+    - qemu-
+    - brave
+  # Fully ignore findings for these process names (comm prefix).
+  process_allowlist: []
+
+log:
+  # json (stdout, SIEM-friendly) or human.
+  format: json
+  # tracing filter, e.g. "info", "debug", "jit_hater=trace".
+  filter: info
