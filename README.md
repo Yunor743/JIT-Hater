@@ -109,20 +109,28 @@ nix run github:JIT-Hater/jit-hater   # try it
 nix build .#jit-hater                # build the package
 ```
 
-The flake exposes:
-
-- `packages.jit-hater` / `packages.default` (crane-based build, musl-ready)
-- `nixosModules.default` — `services.jit-hater` with a hardened systemd unit:
+The flake exposes `packages.jit-hater` (crane-based build) plus checks and a
+dev shell. For a continuous-monitoring deployment on NixOS, use the systemd
+unit template in `contrib/jit-hater.service` (hardened: capabilities
+`CAP_SYS_PTRACE`, `CAP_BPF`, `CAP_PERFMON`, tmpfiles for the dump dir) with
+your own YAML config:
 
 ```nix
-services.jit-hater = {
-  enable = true;
-  settings = {
-    dump.directory = "/dev/shm/jit-hater";
-    monitor.fluctuation_threshold = 5;
-    scanner.interval_secs = 300;
-    rules.jit_allowlist = [ "neovim" "gnome-shell" ];
+systemd.services.jit-hater = {
+  description = "JIT-Hater — behavioral memory threat detector";
+  after = [ "local-fs.target" ];
+  wantedBy = [ "multi-user.target" ];
+  serviceConfig = {
+    ExecStart = "${jit-hater}/bin/jit-hater monitor --config /etc/jit-hater/jit-hater.yaml";
+    NoNewPrivileges = true;
+    AmbientCapabilities = [ "CAP_DAC_READ_SEARCH" "CAP_SYS_PTRACE" "CAP_BPF" "CAP_PERFMON" ];
+    ProtectSystem = "strict";
+    RestrictNamespaces = true;
+    StateDirectory = "jit-hater";
   };
+};
+systemd.tmpfiles.settings."10-jit-hater"."/dev/shm/jit-hater".d = {
+  user = "root"; group = "root"; mode = "0700";
 };
 ```
 
